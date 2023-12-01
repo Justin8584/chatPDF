@@ -10,7 +10,7 @@ export async function uploadToS3(file: File) {
             params: {
                 Bucket: process.env.NEXT_PUBLIC_S3_BUCKET_NAME,
             },
-            region: "us-west-1",
+            region: process.env.NEXT_PUBLIC_S3_REGION,
         });
 
         const file_key = "uploads/" + Date.now().toString() + file.name.replace(" ", "-");
@@ -36,7 +36,9 @@ export async function uploadToS3(file: File) {
         });
 
         return Promise.resolve({ file_key, file_name: file.name });
-    } catch (error) {}
+    } catch (error) {
+        console.error(error);
+    }
 }
 
 export function getS3Url(file_key: string) {
