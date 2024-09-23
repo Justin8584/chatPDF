@@ -1,20 +1,21 @@
+import ChatComponent from "@/components/ChatComponent";
 import ChatSideBar from "@/components/ChatSideBar";
 import PDFViewer from "@/components/PDFViewer";
-import ChatComponent from "@/components/ChatComponent";
 import { db } from "@/lib/db";
 import { chats } from "@/lib/db/schema";
+import { checkSubscription } from "@/lib/subscription";
 import { auth } from "@clerk/nextjs";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import React from "react";
 
 type Props = {
-    param: {
+    params: {
         chatId: string;
     };
 };
 
-const ChatPage = async ({ param: chatId }: Props) => {
+const ChatPage = async ({ params: { chatId } }: Props) => {
     const { userId } = await auth();
     if (!userId) {
         return redirect("/sign-in");
@@ -39,7 +40,7 @@ const ChatPage = async ({ param: chatId }: Props) => {
                 </div>
                 {/* pdf viewer */}
                 <div className="max-h-screen p-4 oveflow-scroll flex-[5]">
-                    <PDFViewer pdfUrl={currentChat?.pdfUrl || ""} />
+                    <PDFViewer pdf_url={currentChat?.pdfUrl || ""} />
                 </div>
                 {/* chat component */}
                 <div className="flex-[3] border-l-4 border-l-slate-200">

@@ -5,7 +5,7 @@ import { getS3Url } from "@/lib/s3";
 import { auth } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
 
-//  /api/create-chat
+// /api/create-chat
 export async function POST(req: Request, res: Response) {
     const { userId } = await auth();
     if (!userId) {
@@ -29,9 +29,14 @@ export async function POST(req: Request, res: Response) {
                 insertedId: chats.id,
             });
 
-        return NextResponse.json({ chat_id: chat_id[0].insertedId }, { status: 200 });
+        return NextResponse.json(
+            {
+                chat_id: chat_id[0].insertedId,
+            },
+            { status: 200 }
+        );
     } catch (error) {
-        console.log(error);
-        return NextResponse.json({ error: "internal server error." }, { status: 500 });
+        console.error(error);
+        return NextResponse.json({ error: "internal server error" }, { status: 500 });
     }
 }

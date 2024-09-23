@@ -1,17 +1,16 @@
-import { Pinecone, PineconeRecord, utils as PineconeUtils } from "@pinecone-database/pinecone";
+import { Pinecone, PineconeRecord } from "@pinecone-database/pinecone";
 import { downloadFromS3 } from "./s3-server";
 import { PDFLoader } from "langchain/document_loaders/fs/pdf";
+import md5 from "md5";
 import { Document, RecursiveCharacterTextSplitter } from "@pinecone-database/doc-splitter";
 import { getEmbeddings } from "./embeddings";
-import md5 from "md5";
-import { convertToASCII } from "./utils";
+import { convertToAscii } from "./utils";
 
 export const getPineconeClient = () => {
-    const pinecone = new Pinecone({
+    return new Pinecone({
         environment: process.env.PINECONE_ENVIRONMENT!,
         apiKey: process.env.PINECONE_API_KEY!,
     });
-    return pinecone;
 };
 
 type PDFPage = {
@@ -22,31 +21,29 @@ type PDFPage = {
 };
 
 export async function loadS3IntoPinecone(fileKey: string) {
-    // 1. get PDF -> download and read pdf
-    console.log("DownLoading s3 into file system ...");
+    // 1. obtain the pdf -> downlaod and read from pdf
+    console.log("downloading s3 into file system");
     const file_name = await downloadFromS3(fileKey);
-
     if (!file_name) {
-        throw new Error("Failed to DownLoad the file from S3 ... ");
+        throw new Error("could not download from s3");
     }
+    console.log("loading pdf into memory" + file_name);
     const loader = new PDFLoader(file_name);
     const pages = (await loader.load()) as PDFPage[];
 
     // 2. split and segment the pdf
-    // ex: pages = Array(10) -> documents = Array(100)
     const documents = await Promise.all(pages.map(prepareDocument));
 
-    // 3. vectorise and embed the individual documents
+    // 3. vectorise and embed individual documents
     const vectors = await Promise.all(documents.flat().map(embedDocument));
 
     // 4. upload to pinecone
     const client = await getPineconeClient();
-    const pineconeIndex = client.Index("chatpdf");
+    const pineconeIndex = await client.index("chatpdf");
+    const namespace = pineconeIndex.namespace(convertToAscii(fileKey));
 
-    console.log("inserting vector into Pinecone.");
-    const namespace = convertToASCII(fileKey);
-
-    PineconeUtils.chunkedUpsert(pineconeIndex, vectors, namespace, 10);
+    console.log("inserting vectors into pinecone");
+    await namespace.upsert(vectors);
 
     return documents[0];
 }
@@ -72,14 +69,13 @@ async function embedDocument(doc: Document) {
 
 export const truncateStringByBytes = (str: string, bytes: number) => {
     const enc = new TextEncoder();
-    const res = new TextDecoder("utf-8").decode(enc.encode(str).slice(0, bytes));
-    return res;
+    return new TextDecoder("utf-8").decode(enc.encode(str).slice(0, bytes));
 };
 
 async function prepareDocument(page: PDFPage) {
     let { pageContent, metadata } = page;
     pageContent = pageContent.replace(/\n/g, "");
-    // split the doc
+    // split the docs
     const splitter = new RecursiveCharacterTextSplitter();
     const docs = await splitter.splitDocuments([
         new Document({
